@@ -23,8 +23,8 @@
     <header>
         <div class="header-title"><span class="brand-strong">GRAIN</span> <span class="brand-muted">Visualizer</span></div>
         <nav class="header-nav">
-            <a href="#">Documentation</a>
-            <a href="#">Disclaimer</a>
+            <a href="https://grain-canals.readthedocs.io/en/latest/" target="_blank" rel="noopener">Documentation</a>
+            <a href="disclaimer.html" target="_blank" rel="noopener">Disclaimer</a>
         </nav>
     </header>
 
@@ -53,49 +53,34 @@
                 <div class="stat-box blue">
                     <span class="stat-label">Total Length</span>
                     <div>
-                        <span class="stat-value">3.82</span>
-                        <span class="stat-unit">million km</span>
+                        <span class="stat-value" id="stat-length">3.82</span>
+                        <span class="stat-unit" id="stat-length-unit">million km</span>
                     </div>
                 </div>
                 <!-- Box 2: Cropland Area -->
                 <div class="stat-box amber">
                     <span class="stat-label">Cropland Area</span>
                     <div>
-                        <span class="stat-value">39.48</span>
-                        <span class="stat-unit">million km<sup>2</sup></span>
+                        <span class="stat-value" id="stat-cropland">39.48</span>
+                        <span class="stat-unit" id="stat-cropland-unit">million km<sup>2</sup></span>
                     </div>
                 </div>
                 <!-- Box 3: Density -->
                 <div class="stat-box green" style="grid-column: span 2;">
                     <span class="stat-label">Canal Density</span>
                     <div>
-                        <span class="stat-value">200.1</span>
-                        <span class="stat-unit">km/1000km<sup>2</sup> of cropland</span>
+                        <span class="stat-value" id="stat-density">200.1</span>
+                        <span class="stat-unit" id="stat-density-unit">km/1000km<sup>2</sup> of cropland</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="panel-section">
-            <div class="panel-title">Canal Attributes</div>
-            <div class="stat-grid">
-                <div class="stat-box purple">
-                    <span class="stat-label">Length</span>
-                    <span class="stat-value">-</span>
-                </div>
-                <div class="stat-box purple">
-                    <span class="stat-label">Slope</span>
-                    <span class="stat-value">-</span>
-                </div>
-                <div class="stat-box purple">
-                    <span class="stat-label">Flow</span>
-                    <span class="stat-value">-</span>
-                </div>
-                <div class="stat-box purple">
-                    <span class="stat-label">Other</span>
-                    <span class="stat-value">-</span>
-                </div>
-            </div>
+            <div class="panel-title">Download Data</div>
+            <a class="download-button" href="https://doi.org/10.5281/zenodo.16786488" target="_blank" rel="noopener">
+                Download Full Dataset
+            </a>
         </div>
     </aside>
 
@@ -114,10 +99,14 @@
     <!-- 4. Footer -->
     <footer>
         <div class="footer-logos">
-            <span class="footer-logo-text">UW LOGO</span>
+            <span class="footer-logo-text footer-logo-uw">
+                <span class="footer-logo-sub">Maintained by </span>
+                <span class="footer-strong">Sarath Suresh</span>,
+                <span class="footer-logo-sub"> University of Washington</span>
+            </span>
         </div>
         <div class="footer-logos">
-            <span class="footer-logo-text">SASWE LOGO</span>
+            <a class="footer-logo-link" href="https://saswe.net" target="_blank" rel="noopener">SASWE Labs</a>
         </div>
     </footer>
 
@@ -172,6 +161,7 @@
         });
 
         map.addControl(new maplibregl.NavigationControl(), "top-right");
+        const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true });
 
         // 4️⃣ Add PMTiles vector source + layer
         map.on("load", () => {
@@ -192,7 +182,7 @@
                 source: "grain",
                 "source-layer": sourceLayer,
                 paint: {
-                    "line-color": "#dc2626", /* Tailwind red-600 */
+                    "line-color": "blue", /* Tailwind blue-600 */
                     "line-opacity": 0.9,
                     "line-width": [
                         "interpolate", ["linear"], ["zoom"],
@@ -202,6 +192,41 @@
                         12, 2.5
                     ]
                 }
+            });
+
+            map.on("mouseenter", "grain-lines", () => {
+                map.getCanvas().style.cursor = "pointer";
+            });
+
+            map.on("mouseleave", "grain-lines", () => {
+                map.getCanvas().style.cursor = "";
+            });
+
+            map.on("click", "grain-lines", (e) => {
+                const feature = e.features?.[0];
+                if (!feature?.properties) {
+                    return;
+                }
+
+                const rows = Object.entries(feature.properties)
+                    .map(([key, value]) => {
+                        const safeKey = String(key).replace(/_/g, " ");
+                        const safeValue = value === null || value === undefined ? "—" : String(value);
+                        return `<div style="display:flex;gap:8px;justify-content:space-between;"><strong>${safeKey}</strong><span>${safeValue}</span></div>`;
+                    })
+                    .join("");
+
+                popup
+                    .setLngLat(e.lngLat)
+                    .setHTML(
+                        `<div style="min-width:220px;font-size:12px;line-height:1.4;">` +
+                            `${rows}` +
+                            `<div style="margin-top:8px;font-size:11px;color:#64748b;">` +
+                            `Download the full GRAIN data for more attributes` +
+                            `</div>` +
+                        `</div>`
+                    )
+                    .addTo(map);
             });
 
             debugEl.textContent = "GRAIN data loaded from Cloudflare R2.";
@@ -226,9 +251,56 @@
             const isStandard = basemapSelect.value === "standard";
             map.setLayoutProperty("osm", "visibility", isStandard ? "visible" : "none");
             map.setLayoutProperty("esri-imagery", "visibility", isStandard ? "none" : "visible");
+            map.setPaintProperty("grain-lines", "line-color", isStandard ? "blue" : "#00C1FF");
         });
 
         const countrySelect = document.getElementById("country-select");
+        let countryFeatures = [];
+        const GLOBAL_STATS = {
+            length: 3.82,
+            density: 200.1,
+            cropland: 39.48
+        };
+
+        const statLength = document.getElementById("stat-length");
+        const statLengthUnit = document.getElementById("stat-length-unit");
+        const statCropland = document.getElementById("stat-cropland");
+        const statCroplandUnit = document.getElementById("stat-cropland-unit");
+        const statDensity = document.getElementById("stat-density");
+        const statDensityUnit = document.getElementById("stat-density-unit");
+
+        const formatNumber = (value, options = {}) =>
+            new Intl.NumberFormat("en-US", options).format(value);
+
+        const setGlobalStats = () => {
+            statLength.textContent = GLOBAL_STATS.length;
+            statLengthUnit.textContent = "million km";
+            statCropland.textContent = GLOBAL_STATS.cropland;
+            statCroplandUnit.innerHTML = "million km<sup>2</sup>";
+            statDensity.textContent = GLOBAL_STATS.density;
+            statDensityUnit.innerHTML = "km/1000km<sup>2</sup> of cropland";
+        };
+
+        const setCountryStats = (properties) => {
+            const totalLength =
+                (properties?.Agricultural || 0) +
+                (properties?.urban_length || 0) +
+                (properties?.navigational_length || 0) +
+                (properties?.Other || 0);
+
+            statLength.textContent = formatNumber(totalLength, { maximumFractionDigits: 1 });
+            statLengthUnit.textContent = "km";
+
+            statCropland.textContent = formatNumber(properties?.cropland_area_km2 || 0, {
+                maximumFractionDigits: 0
+            });
+            statCroplandUnit.innerHTML = "km<sup>2</sup>";
+
+            statDensity.textContent = formatNumber(properties?.canal_density || 0, {
+                maximumFractionDigits: 1
+            });
+            statDensityUnit.innerHTML = "km/1000km<sup>2</sup> of cropland";
+        };
 
         const populateCountries = async () => {
             try {
@@ -237,8 +309,9 @@
                     throw new Error(`Failed to load country stats (${response.status})`);
                 }
                 const data = await response.json();
+                countryFeatures = data.features || [];
                 const names = Array.from(new Set(
-                    (data.features || [])
+                    countryFeatures
                         .map((feature) => feature?.properties?.name)
                         .filter(Boolean)
                 )).sort((a, b) => a.localeCompare(b));
@@ -268,6 +341,25 @@
         };
 
         populateCountries();
+
+        countrySelect.addEventListener("change", () => {
+            if (countrySelect.value === "global") {
+                map.flyTo({ center: [0, 20], zoom: 1 });
+                setGlobalStats();
+                return;
+            }
+
+            const selected = countryFeatures.find(
+                (feature) => feature?.properties?.name === countrySelect.value
+            );
+            const point = selected?.properties?.geo_point_2d;
+            if (!point || typeof point.lon !== "number" || typeof point.lat !== "number") {
+                return;
+            }
+
+            setCountryStats(selected?.properties);
+            map.flyTo({ center: [point.lon, point.lat], zoom: 5 });
+        });
     </script>
 </body>
 

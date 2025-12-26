@@ -153,6 +153,47 @@ aside {
   margin-left: 4px;
 }
 
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--primary-color);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: var(--shadow-1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.download-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+
+.sidebar-logos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.sidebar-logos img {
+  width: 100%;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.sidebar-logos .logo-uw {
+  max-height: 80px;
+}
+
+.sidebar-logos .logo-saswe {
+  max-height: 60px;
+}
+
+
 /* Material Inputs */
 select.grain-input {
   width: 100%;
@@ -256,7 +297,7 @@ select.grain-input:focus {
 .map-control-card {
   position: absolute;
   top: 16px;
-  right: 16px;
+  right: 84px;
   background: var(--surface-main);
   padding: 12px;
   border-radius: 12px;
@@ -303,12 +344,40 @@ footer {
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-muted);
-  opacity: 0.6;
+  opacity: 0.7;
   transition: opacity 0.2s;
 }
 
 .footer-logo-text:hover {
   opacity: 1;
+}
+
+.footer-logo-link {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+  opacity: 1;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.footer-logo-link:hover {
+  opacity: 1;
+}
+
+.footer-logo-uw {
+  color: var(--text-main);
+  opacity: 1;
+}
+
+.footer-logo-sub {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.footer-strong {
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 /* Override MapLibre defaults */
