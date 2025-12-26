@@ -21,7 +21,7 @@
 <body>
     <!-- 1. Header -->
     <header>
-        <div class="header-title">GRAIN Visualizer</div>
+        <div class="header-title"><span class="brand-strong">GRAIN</span> <span class="brand-muted">Visualizer</span></div>
         <nav class="header-nav">
             <a href="#">Documentation</a>
             <a href="#">Disclaimer</a>
@@ -47,30 +47,30 @@
         </div>
 
         <div class="panel-section">
-            <div class="panel-title">Country Stats</div>
+            <div class="panel-title">Stats</div>
             <div class="stat-grid">
                 <!-- Box 1: Length -->
                 <div class="stat-box blue">
                     <span class="stat-label">Total Length</span>
                     <div>
-                        <span class="stat-value">--</span>
-                        <span class="stat-unit">km</span>
+                        <span class="stat-value">3.82</span>
+                        <span class="stat-unit">million km</span>
                     </div>
                 </div>
-                <!-- Box 2: Density -->
-                <div class="stat-box green">
-                    <span class="stat-label">Canal Density</span>
-                    <div>
-                        <span class="stat-value">--</span>
-                        <span class="stat-unit">m/ha</span>
-                    </div>
-                </div>
-                <!-- Box 3: Cropland Area (Full Width or Grid?) -->
-                <div class="stat-box amber" style="grid-column: span 2;">
+                <!-- Box 2: Cropland Area -->
+                <div class="stat-box amber">
                     <span class="stat-label">Cropland Area</span>
                     <div>
-                        <span class="stat-value">--</span>
-                        <span class="stat-unit">hectares</span>
+                        <span class="stat-value">39.48</span>
+                        <span class="stat-unit">million km<sup>2</sup></span>
+                    </div>
+                </div>
+                <!-- Box 3: Density -->
+                <div class="stat-box green" style="grid-column: span 2;">
+                    <span class="stat-label">Canal Density</span>
+                    <div>
+                        <span class="stat-value">200.1</span>
+                        <span class="stat-unit">km/1000km<sup>2</sup> of cropland</span>
                     </div>
                 </div>
             </div>
@@ -103,9 +103,9 @@
     <main id="map">
         <div class="map-control-card">
             <span>Basemap</span>
-            <select>
-                <option>Standard</option>
-                <option>Satellite</option>
+            <select id="basemap-select">
+                <option value="standard" selected>Standard</option>
+                <option value="satellite">Satellite</option>
             </select>
         </div>
         <div class="debug" id="debug">Booting…</div>
@@ -151,13 +151,20 @@
                 sources: {
                     osm: {
                         type: "raster",
-                        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                        tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"],
                         tileSize: 256,
-                        attribution: "© OpenStreetMap contributors"
+                        attribution: "© Esri"
+                    },
+                    esri_imagery: {
+                        type: "raster",
+                        tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+                        tileSize: 256,
+                        attribution: "© Esri"
                     }
                 },
                 layers: [
-                    { id: "osm", type: "raster", source: "osm" }
+                    { id: "osm", type: "raster", source: "osm" },
+                    { id: "esri-imagery", type: "raster", source: "esri_imagery", layout: { visibility: "none" } }
                 ]
             },
             center: [0, 20],
@@ -213,6 +220,54 @@
                 // debugEl.textContent = "GRAIN PMTiles loaded ✅";
             }
         });
+
+        const basemapSelect = document.getElementById("basemap-select");
+        basemapSelect.addEventListener("change", () => {
+            const isStandard = basemapSelect.value === "standard";
+            map.setLayoutProperty("osm", "visibility", isStandard ? "visible" : "none");
+            map.setLayoutProperty("esri-imagery", "visibility", isStandard ? "none" : "visible");
+        });
+
+        const countrySelect = document.getElementById("country-select");
+
+        const populateCountries = async () => {
+            try {
+                const response = await fetch("assets/grain_country_stats.geojson");
+                if (!response.ok) {
+                    throw new Error(`Failed to load country stats (${response.status})`);
+                }
+                const data = await response.json();
+                const names = Array.from(new Set(
+                    (data.features || [])
+                        .map((feature) => feature?.properties?.name)
+                        .filter(Boolean)
+                )).sort((a, b) => a.localeCompare(b));
+
+                countrySelect.innerHTML = "";
+                const globalOption = document.createElement("option");
+                globalOption.value = "global";
+                globalOption.textContent = "Global";
+                countrySelect.appendChild(globalOption);
+
+                const divider = document.createElement("option");
+                divider.disabled = true;
+                divider.textContent = "──────────";
+                countrySelect.appendChild(divider);
+
+                const fragment = document.createDocumentFragment();
+                names.forEach((name) => {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    fragment.appendChild(option);
+                });
+                countrySelect.appendChild(fragment);
+            } catch (error) {
+                console.error("Failed to populate countries:", error);
+            }
+        };
+
+        populateCountries();
     </script>
 </body>
 

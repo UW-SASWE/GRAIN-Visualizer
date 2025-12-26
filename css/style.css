@@ -72,9 +72,18 @@ header {
 
 .header-title {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
   letter-spacing: -0.025em;
+}
+
+.brand-strong {
+  font-weight: 800;
+}
+
+.brand-muted {
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .header-nav a {
