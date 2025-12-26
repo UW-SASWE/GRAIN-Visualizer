@@ -14,8 +14,8 @@
   --border-color: #e2e8f0;
 
   /* Layout */
-  --header-height: 54px;
-  --footer-height: 48px;
+  --header-height: 44px;
+  --footer-height: 44px;
   --sidebar-width: 360px;
   /* Slightly wider for better card spacing */
 
@@ -118,7 +118,7 @@ aside {
 
 .logo-placeholder {
   width: 100%;
-  height: 250px;
+  height: 220px;
   background-color: transparent;
   border: none;
   border-radius: 0;
