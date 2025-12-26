@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GRAIN Visualizer</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- MapLibre CSS -->
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <!-- Custom CSS -->
+    <link href="css/style.css" rel="stylesheet" />
+</head>
+
+<body>
+    <!-- 1. Header -->
+    <header>
+        <div class="header-title">GRAIN Visualizer</div>
+        <nav class="header-nav">
+            <a href="#">Documentation</a>
+            <a href="#">Disclaimer</a>
+        </nav>
+    </header>
+
+    <!-- 2. Sidebar -->
+    <aside>
+        <div class="logo-placeholder">
+            <img src="assets/grain_logo.png" alt="GRAIN logo" />
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Region Selection</div>
+            <select class="grain-input" id="country-select">
+                <option value="global">Global View</option>
+                <option disabled>──────────</option>
+                <option value="IN">India</option>
+                <option value="CN">China</option>
+                <option value="US">United States</option>
+                <!-- More options will be populated dynamically -->
+            </select>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Country Stats</div>
+            <div class="stat-grid">
+                <!-- Box 1: Length -->
+                <div class="stat-box blue">
+                    <span class="stat-label">Total Length</span>
+                    <div>
+                        <span class="stat-value">--</span>
+                        <span class="stat-unit">km</span>
+                    </div>
+                </div>
+                <!-- Box 2: Density -->
+                <div class="stat-box green">
+                    <span class="stat-label">Canal Density</span>
+                    <div>
+                        <span class="stat-value">--</span>
+                        <span class="stat-unit">m/ha</span>
+                    </div>
+                </div>
+                <!-- Box 3: Cropland Area (Full Width or Grid?) -->
+                <div class="stat-box amber" style="grid-column: span 2;">
+                    <span class="stat-label">Cropland Area</span>
+                    <div>
+                        <span class="stat-value">--</span>
+                        <span class="stat-unit">hectares</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Canal Attributes</div>
+            <div class="stat-grid">
+                <div class="stat-box purple">
+                    <span class="stat-label">Length</span>
+                    <span class="stat-value">-</span>
+                </div>
+                <div class="stat-box purple">
+                    <span class="stat-label">Slope</span>
+                    <span class="stat-value">-</span>
+                </div>
+                <div class="stat-box purple">
+                    <span class="stat-label">Flow</span>
+                    <span class="stat-value">-</span>
+                </div>
+                <div class="stat-box purple">
+                    <span class="stat-label">Other</span>
+                    <span class="stat-value">-</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 3. Map Area -->
+    <main id="map">
+        <div class="map-control-card">
+            <span>Basemap</span>
+            <select>
+                <option>Standard</option>
+                <option>Satellite</option>
+            </select>
+        </div>
+        <div class="debug" id="debug">Booting…</div>
+    </main>
+
+    <!-- 4. Footer -->
+    <footer>
+        <div class="footer-logos">
+            <span class="footer-logo-text">UW LOGO</span>
+        </div>
+        <div class="footer-logos">
+            <span class="footer-logo-text">SASWE LOGO</span>
+        </div>
+    </footer>
+
+    <!-- MapLibre JS -->
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <!-- PMTiles UMD build (IMPORTANT) -->
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+
+    <script>
+        const debugEl = document.getElementById("debug");
+        debugEl.textContent = "Registering PMTiles protocol…";
+
+        // 1️⃣ Register PMTiles protocol BEFORE creating map
+        const protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
+
+        console.log("pmtiles global:", pmtiles);
+
+        // 2️⃣ PMTiles URL (long path, as requested)
+        const PMTILES_URL =
+            "https://pub-9a261f2211db4953b44c3cb6016ab4e8.r2.dev/pmtiles/v1.0/grain_global_v1_0.pmtiles";
+
+        debugEl.textContent = "Creating map…";
+
+        // 3️⃣ Create map with simple OSM basemap
+        const map = new maplibregl.Map({
+            container: "map",
+            style: {
+                version: 8,
+                sources: {
+                    osm: {
+                        type: "raster",
+                        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                        tileSize: 256,
+                        attribution: "© OpenStreetMap contributors"
+                    }
+                },
+                layers: [
+                    { id: "osm", type: "raster", source: "osm" }
+                ]
+            },
+            center: [0, 20],
+            zoom: 2
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+        // 4️⃣ Add PMTiles vector source + layer
+        map.on("load", () => {
+            debugEl.textContent = "Basemap loaded. Adding GRAIN PMTiles…";
+
+            map.addSource("grain", {
+                type: "vector",
+                url: `pmtiles://${PMTILES_URL}`
+            });
+
+            // ⚠️ This must match the PMTiles internal layer name
+            // We will fix this once you paste `pmtiles info` output
+            const sourceLayer = "grain_canals";
+
+            map.addLayer({
+                id: "grain-lines",
+                type: "line",
+                source: "grain",
+                "source-layer": sourceLayer,
+                paint: {
+                    "line-color": "#dc2626", /* Tailwind red-600 */
+                    "line-opacity": 0.9,
+                    "line-width": [
+                        "interpolate", ["linear"], ["zoom"],
+                        2, 1,
+                        5, 0.6,
+                        8, 1.2,
+                        12, 2.5
+                    ]
+                }
+            });
+
+            debugEl.textContent = "GRAIN data loaded from Cloudflare R2.";
+        });
+
+        // 5️⃣ Explicit error handling
+        map.on("error", (e) => {
+            console.error("MapLibre error:", e);
+            debugEl.textContent =
+                "Map error: " + (e?.error?.message || "see console");
+        });
+
+        map.on("sourcedata", (e) => {
+            if (e.sourceId === "grain" && (e.isSourceLoaded || e.loaded)) {
+                // sourceLoaded event can be spammy, but useful to confirm
+                // debugEl.textContent = "GRAIN PMTiles loaded ✅";
+            }
+        });
+    </script>
+</body>
+
+</html>
