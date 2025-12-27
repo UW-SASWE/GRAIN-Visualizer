@@ -111,7 +111,7 @@ aside {
   grid-area: sidebar;
   background-color: var(--surface-main);
   /* border-right: 1px solid var(--border-color); optional with shadow */
-  box-shadow: var(--shadow-1);
+  /* box-shadow: 6px 0 30px rgba(69, 69, 69, 0.125); */
   padding: 24px;
   overflow-y: auto;
   display: flex;
@@ -298,6 +298,7 @@ select.grain-input:focus {
   z-index: 10;
 }
 
+
 .map-control-card {
   position: absolute;
   top: 16px;
@@ -439,7 +440,8 @@ footer {
 
 .footer-logos {
   display: flex;
-  gap: 32px;
+  gap: 4px;
+  align-items: center;
 }
 
 
@@ -447,12 +449,16 @@ footer {
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-muted);
-  opacity: 0.7;
+  opacity: 1;
   transition: opacity 0.2s;
 }
 
 .footer-logo-text:hover {
   opacity: 1;
+}
+
+.footer-logo-sub.footer-logo-text:hover {
+  opacity: 0.7;
 }
 
 .footer-logo-link {
@@ -468,6 +474,7 @@ footer {
   opacity: 1;
 }
 
+
 .footer-logo-uw {
   color: var(--text-main);
   opacity: 1;
@@ -475,12 +482,17 @@ footer {
 
 .footer-logo-sub {
   font-weight: 400;
-  color: var(--text-muted);
+  color: #1f2937;
 }
 
 .footer-strong {
   font-weight: 700;
   color: var(--text-main);
+}
+
+.footer-cloudflare-logo {
+  height: 26px;
+  width: auto;
 }
 
 /* Override MapLibre defaults */
