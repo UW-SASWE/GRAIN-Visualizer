@@ -324,12 +324,14 @@ select.grain-input:focus {
   align-items: center;
   gap: 12px;
   font-size: 0.875rem;
-  font-weight: 400;
-  color: #166534;
+  font-weight: 500;
+  color: #000000;
   cursor: pointer;
 }
 
 .canal-toggle-text {
+  color: inherit;
+  font-size: inherit;
   line-height: 0.75;
 }
 
@@ -408,7 +410,7 @@ select.grain-input:focus {
   bottom: 90px;
 }
 
-.map-control-card span {
+.map-control-card > span {
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--text-muted);
