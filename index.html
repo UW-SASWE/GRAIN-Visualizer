@@ -77,6 +77,12 @@
         </div>
 
         <div class="panel-section">
+            <button class="insights-tab insights-tab--sidebar" type="button" id="insights-tab" aria-controls="insights-panel" aria-expanded="false">
+                Insights
+            </button>
+        </div>
+
+        <div class="panel-section">
             <div class="panel-title">Download Data</div>
             <a class="download-button" href="https://doi.org/10.5281/zenodo.16786488" target="_blank" rel="noopener">
                 Download Full Dataset
@@ -96,11 +102,88 @@
         </div>
         <div class="map-control-card map-toggle-card">
             <label class="canal-toggle">
-                <span class="canal-toggle-text">Toggle canals</span>
+                <span class="canal-toggle-text">Toggle Canals</span>
                 <input type="checkbox" id="canals-toggle" class="canal-switch-input" checked />
                 <span class="canal-switch" aria-hidden="true"></span>
             </label>
         </div>
+        <section class="insights-panel" id="insights-panel" aria-hidden="true">
+            <div class="insights-header">
+                <span class="insights-title">Insights</span>
+                <div class="insights-tabs" role="tablist" aria-label="Insights data">
+                    <button class="insights-tab-button" type="button" data-insights-tab="length" role="tab" aria-selected="true">
+                        Length
+                    </button>
+                    <button class="insights-tab-button" type="button" data-insights-tab="density" role="tab" aria-selected="false">
+                        Density
+                    </button>
+                    <button class="insights-tab-button" type="button" data-insights-tab="yield" role="tab" aria-selected="false">
+                        Cereal Yield
+                    </button>
+                </div>
+                <button class="insights-close" type="button" id="insights-close" aria-label="Close insights panel">×</button>
+            </div>
+            <div class="insights-body">
+                <div class="insights-content" data-insights-panel="length">
+                    <div class="insights-map-card">
+                        <canvas id="length-choropleth" aria-label="Length choropleth map" role="img"></canvas>
+                        <div class="insights-legend-title">Canal length (km)</div>
+                        <div class="insights-legend">
+                            <span class="insights-legend-label" id="length-legend-min">0</span>
+                            <div class="insights-legend-bar" id="length-legend-bar"></div>
+                            <span class="insights-legend-label" id="length-legend-max">0</span>
+                        </div>
+                    </div>
+                    <div class="insights-side-card">
+                        <div class="insights-side-title">Top by length</div>
+                        <div class="insights-bars" id="length-bars"></div>
+                    </div>
+                </div>
+                <div class="insights-content" data-insights-panel="density" hidden>
+                    <div class="insights-map-card">
+                        <canvas id="density-choropleth" aria-label="Density choropleth map" role="img"></canvas>
+                        <div class="insights-legend-title">Canal Density (km<sup>2</sup>/1000 km<sup>2</sup> of cropland)</div>
+                        <div class="insights-legend">
+                            <span class="insights-legend-label" id="density-legend-min">0</span>
+                            <div class="insights-legend-bar" id="density-legend-bar"></div>
+                            <span class="insights-legend-label" id="density-legend-max">0</span>
+                        </div>
+                    </div>
+                    <div class="insights-side-card">
+                        <div class="insights-side-title">Top by density</div>
+                        <div class="insights-bars" id="density-bars"></div>
+                    </div>
+                </div>
+                <div class="insights-content" data-insights-panel="yield" hidden>
+                    <div class="insights-map-card insights-map-card--scatter">
+                        <canvas id="yield-scatterplot" aria-label="Cereal yield scatterplot" role="img"></canvas>
+                    </div>
+                    <div class="insights-side-card">
+                        <div class="insights-legend-block">
+                            <div class="insights-legend-heading">Continent</div>
+                            <div class="insights-legend insights-legend--vertical" id="yield-legend"></div>
+                        </div>
+                        <div class="insights-legend-block" id="yield-size-legend">
+                            <div class="insights-legend-heading">Canal length</div>
+                            <div class="insights-legend-size">
+                                <div class="insights-legend-size-row">
+                                    <span class="insights-legend-size-dot insights-legend-size-dot--small"></span>
+                                    <span class="insights-legend-label" id="yield-size-small">Small</span>
+                                </div>
+                                <div class="insights-legend-size-row">
+                                    <span class="insights-legend-size-dot insights-legend-size-dot--medium"></span>
+                                    <span class="insights-legend-label" id="yield-size-medium">Medium</span>
+                                </div>
+                                <div class="insights-legend-size-row">
+                                    <span class="insights-legend-size-dot insights-legend-size-dot--large"></span>
+                                    <span class="insights-legend-label" id="yield-size-large">Large</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
         <div class="map-logo">
             <a href="https://saswe.net" target="_blank" rel="noopener">
                 <img class="logo-saswe" src="assets/saswe_logo.png" alt="SASWE logo" />
@@ -320,6 +403,620 @@
 
         canalsToggle.addEventListener("change", setCanalsVisibility);
 
+        const insightsTab = document.getElementById("insights-tab");
+        const insightsClose = document.getElementById("insights-close");
+        const insightsPanel = document.getElementById("insights-panel");
+        const insightsPanels = document.querySelectorAll(".insights-content");
+        const insightsButtons = document.querySelectorAll(".insights-tab-button");
+
+        const getTotalLength = (properties) =>
+            (properties?.Agricultural || 0) +
+            (properties?.urban_length || 0) +
+            (properties?.navigational_length || 0) +
+            (properties?.Other || 0);
+
+        const getDensityValue = (properties) => properties?.canal_density || 0;
+
+        const renderLengthBars = () => {
+            const barsEl = document.getElementById("length-bars");
+            if (!barsEl || !countryFeatures.length) {
+                return;
+            }
+
+            const rows = countryFeatures
+                .map((feature) => ({
+                    name: feature?.properties?.name || "Unknown",
+                    value: getTotalLength(feature?.properties)
+                }))
+                .filter((row) => Number.isFinite(row.value) && row.value > 0)
+                .reduce((acc, row) => {
+                    const existing = acc.get(row.name);
+                    if (!existing || row.value > existing.value) {
+                        acc.set(row.name, row);
+                    }
+                    return acc;
+                }, new Map());
+
+            const uniqueRows = Array.from(rows.values()).sort((a, b) => b.value - a.value);
+
+            const maxValue = uniqueRows[0]?.value || 1;
+            barsEl.innerHTML = "";
+
+            uniqueRows.forEach((row, index) => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "insights-bar-row";
+
+                const label = document.createElement("div");
+                label.className = "insights-bar-label";
+                label.textContent = `${index + 1}. ${row.name}`;
+
+                const barTrack = document.createElement("div");
+                barTrack.className = "insights-bar-track";
+
+                const barFill = document.createElement("div");
+                barFill.className = "insights-bar-fill insights-bar-fill--length";
+                barFill.style.width = `${Math.max(6, (row.value / maxValue) * 100)}%`;
+
+                const value = document.createElement("div");
+                value.className = "insights-bar-value";
+                value.textContent = `${formatNumber(row.value, { maximumFractionDigits: 0 })} km`;
+
+                barTrack.appendChild(barFill);
+                wrapper.appendChild(label);
+                wrapper.appendChild(barTrack);
+                wrapper.appendChild(value);
+                barsEl.appendChild(wrapper);
+            });
+        };
+
+        const renderDensityBars = () => {
+            const barsEl = document.getElementById("density-bars");
+            if (!barsEl || !countryFeatures.length) {
+                return;
+            }
+
+            const rows = countryFeatures
+                .map((feature) => ({
+                    name: feature?.properties?.name || "Unknown",
+                    value: getDensityValue(feature?.properties)
+                }))
+                .filter((row) => Number.isFinite(row.value) && row.value > 0)
+                .reduce((acc, row) => {
+                    const existing = acc.get(row.name);
+                    if (!existing || row.value > existing.value) {
+                        acc.set(row.name, row);
+                    }
+                    return acc;
+                }, new Map());
+
+            const uniqueRows = Array.from(rows.values()).sort((a, b) => b.value - a.value);
+            const maxValue = uniqueRows[0]?.value || 1;
+            barsEl.innerHTML = "";
+
+            uniqueRows.forEach((row, index) => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "insights-bar-row";
+
+                const label = document.createElement("div");
+                label.className = "insights-bar-label";
+                label.textContent = `${index + 1}. ${row.name}`;
+
+                const barTrack = document.createElement("div");
+                barTrack.className = "insights-bar-track";
+
+                const barFill = document.createElement("div");
+                barFill.className = "insights-bar-fill insights-bar-fill--density";
+                barFill.style.width = `${Math.max(6, (row.value / maxValue) * 100)}%`;
+
+                const value = document.createElement("div");
+                value.className = "insights-bar-value";
+                value.textContent = formatNumber(row.value, { maximumFractionDigits: 1 });
+
+                barTrack.appendChild(barFill);
+                wrapper.appendChild(label);
+                wrapper.appendChild(barTrack);
+                wrapper.appendChild(value);
+                barsEl.appendChild(wrapper);
+            });
+        };
+
+        const renderLengthChoropleth = () => {
+            const canvas = document.getElementById("length-choropleth");
+            if (!canvas || !countryFeatures.length) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                return;
+            }
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                return;
+            }
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const values = countryFeatures
+                .map((feature) => getTotalLength(feature?.properties))
+                .filter((value) => Number.isFinite(value) && value > 0);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            const lengthPalette = [
+                [254, 230, 170],
+                [252, 211, 77],
+                [190, 242, 100],
+                [132, 204, 22],
+                [22, 163, 74],
+                [21, 128, 61],
+                [22, 101, 52]
+            ];
+
+            const lerp = (a, b, t) => a + (b - a) * t;
+            const samplePalette = (t) => {
+                const scaled = t * (lengthPalette.length - 1);
+                const idx = Math.floor(scaled);
+                const frac = scaled - idx;
+                const start = lengthPalette[idx];
+                const end = lengthPalette[Math.min(idx + 1, lengthPalette.length - 1)];
+                return [
+                    Math.round(lerp(start[0], end[0], frac)),
+                    Math.round(lerp(start[1], end[1], frac)),
+                    Math.round(lerp(start[2], end[2], frac))
+                ];
+            };
+
+            const project = ([lon, lat]) => {
+                const x = ((lon + 180) / 360) * rect.width;
+                const y = ((90 - lat) / 180) * rect.height;
+                return [x, y];
+            };
+
+            const drawRings = (rings) => {
+                rings.forEach((ring) => {
+                    ring.forEach((coord, index) => {
+                        const [x, y] = project(coord);
+                        if (index === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.closePath();
+                });
+            };
+
+            countryFeatures.forEach((feature) => {
+                const geometry = feature?.geometry;
+                if (!geometry) {
+                    return;
+                }
+
+                const value = getTotalLength(feature?.properties);
+                const t = Math.min(1, Math.max(0, (value - min) / range));
+                const [r, g, b] = samplePalette(t);
+
+                ctx.beginPath();
+                if (geometry.type === "Polygon") {
+                    drawRings(geometry.coordinates);
+                } else if (geometry.type === "MultiPolygon") {
+                    geometry.coordinates.forEach((polygon) => drawRings(polygon));
+                } else {
+                    return;
+                }
+
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+                ctx.strokeStyle = "rgba(15, 23, 42, 0.18)";
+                ctx.lineWidth = 0.4;
+                ctx.fill("evenodd");
+                ctx.stroke();
+            });
+
+            const minLabel = document.getElementById("length-legend-min");
+            const maxLabel = document.getElementById("length-legend-max");
+            const legendBar = document.getElementById("length-legend-bar");
+            if (minLabel && maxLabel && legendBar) {
+                minLabel.textContent = `${formatNumber(min, { maximumFractionDigits: 0 })} km`;
+                maxLabel.textContent = `${formatNumber(max, { maximumFractionDigits: 0 })} km`;
+                const gradientStops = lengthPalette
+                    .map((color, index) => {
+                        const pct = (index / (lengthPalette.length - 1)) * 100;
+                        return `rgb(${color[0]}, ${color[1]}, ${color[2]}) ${pct}%`;
+                    })
+                    .join(", ");
+                legendBar.style.background = `linear-gradient(90deg, ${gradientStops})`;
+            }
+        };
+
+        const renderDensityChoropleth = () => {
+            const canvas = document.getElementById("density-choropleth");
+            if (!canvas || !countryFeatures.length) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                return;
+            }
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                return;
+            }
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const values = countryFeatures
+                .map((feature) => getDensityValue(feature?.properties))
+                .filter((value) => Number.isFinite(value) && value > 0);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            const densityPalette = [
+                [224, 242, 254],
+                [248, 180, 180],
+                [239, 68, 68],
+                [190, 82, 160],
+                [124, 58, 237],
+                [76, 29, 149]
+            ];
+
+            const lerp = (a, b, t) => a + (b - a) * t;
+            const samplePalette = (t) => {
+                const scaled = t * (densityPalette.length - 1);
+                const idx = Math.floor(scaled);
+                const frac = scaled - idx;
+                const start = densityPalette[idx];
+                const end = densityPalette[Math.min(idx + 1, densityPalette.length - 1)];
+                return [
+                    Math.round(lerp(start[0], end[0], frac)),
+                    Math.round(lerp(start[1], end[1], frac)),
+                    Math.round(lerp(start[2], end[2], frac))
+                ];
+            };
+
+            const project = ([lon, lat]) => {
+                const x = ((lon + 180) / 360) * rect.width;
+                const y = ((90 - lat) / 180) * rect.height;
+                return [x, y];
+            };
+
+            const drawRings = (rings) => {
+                rings.forEach((ring) => {
+                    ring.forEach((coord, index) => {
+                        const [x, y] = project(coord);
+                        if (index === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.closePath();
+                });
+            };
+
+            countryFeatures.forEach((feature) => {
+                const geometry = feature?.geometry;
+                if (!geometry) {
+                    return;
+                }
+
+                const value = getDensityValue(feature?.properties);
+                const t = Math.min(1, Math.max(0, (value - min) / range));
+                const [r, g, b] = samplePalette(t);
+
+                ctx.beginPath();
+                if (geometry.type === "Polygon") {
+                    drawRings(geometry.coordinates);
+                } else if (geometry.type === "MultiPolygon") {
+                    geometry.coordinates.forEach((polygon) => drawRings(polygon));
+                } else {
+                    return;
+                }
+
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+                ctx.strokeStyle = "rgba(15, 23, 42, 0.18)";
+                ctx.lineWidth = 0.4;
+                ctx.fill("evenodd");
+                ctx.stroke();
+            });
+
+            const minLabel = document.getElementById("density-legend-min");
+            const maxLabel = document.getElementById("density-legend-max");
+            const legendBar = document.getElementById("density-legend-bar");
+            if (minLabel && maxLabel && legendBar) {
+                minLabel.textContent = formatNumber(min, { maximumFractionDigits: 1 });
+                maxLabel.textContent = formatNumber(max, { maximumFractionDigits: 1 });
+                const gradientStops = densityPalette
+                    .map((color, index) => {
+                        const pct = (index / (densityPalette.length - 1)) * 100;
+                        return `rgb(${color[0]}, ${color[1]}, ${color[2]}) ${pct}%`;
+                    })
+                    .join(", ");
+                legendBar.style.background = `linear-gradient(90deg, ${gradientStops})`;
+            }
+        };
+
+        const renderYieldScatterplot = () => {
+            const canvas = document.getElementById("yield-scatterplot");
+            if (!canvas || !countryFeatures.length) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                return;
+            }
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                return;
+            }
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const continentColors = {
+                Africa: "#f97316",
+                Asia: "#2563eb",
+                Europe: "#7c3aed",
+                Americas: "#facc15",
+                Oceania: "#0ea5e9",
+                Antarctica: "#64748b"
+            };
+
+            const rows = countryFeatures
+                .map((feature) => ({
+                    density: getDensityValue(feature?.properties),
+                    yield: feature?.properties?.cereal_yield || 0,
+                    length: getTotalLength(feature?.properties),
+                    continent: feature?.properties?.continent || "Other"
+                }))
+                .filter((row) => Number.isFinite(row.density) && Number.isFinite(row.yield));
+
+            if (!rows.length) {
+                return;
+            }
+
+            const pad = 34;
+            const xMin = Math.min(...rows.map((row) => row.density));
+            const xMax = Math.max(...rows.map((row) => row.density));
+            const yMin = Math.min(...rows.map((row) => row.yield));
+            const yMax = Math.max(...rows.map((row) => row.yield));
+            const lenMin = Math.min(...rows.map((row) => row.length));
+            const lenMax = Math.max(...rows.map((row) => row.length));
+
+            const scale = (value, min, max, size) =>
+                pad + ((value - min) / (max - min || 1)) * (size - pad * 2);
+
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.6)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad, pad);
+            ctx.lineTo(pad, rect.height - pad);
+            ctx.lineTo(rect.width - pad, rect.height - pad);
+            ctx.stroke();
+
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([3, 3]);
+            for (let i = 1; i <= 4; i += 1) {
+                const x = pad + (i / 5) * (rect.width - pad * 2);
+                const y = pad + (i / 5) * (rect.height - pad * 2);
+                ctx.beginPath();
+                ctx.moveTo(x, pad);
+                ctx.lineTo(x, rect.height - pad);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(pad, y);
+                ctx.lineTo(rect.width - pad, y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            const tickCount = 5;
+            ctx.strokeStyle = "rgba(100, 116, 139, 0.7)";
+            ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+            ctx.lineWidth = 1;
+            ctx.font = "10px Inter, sans-serif";
+
+            for (let i = 0; i <= tickCount; i += 1) {
+                const t = i / tickCount;
+                const x = pad + t * (rect.width - pad * 2);
+                const y = rect.height - pad - t * (rect.height - pad * 2);
+                const xValue = xMin + t * (xMax - xMin);
+                const yValue = yMin + t * (yMax - yMin);
+
+                ctx.beginPath();
+                ctx.moveTo(x, rect.height - pad);
+                ctx.lineTo(x, rect.height - pad + 4);
+                ctx.stroke();
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                ctx.fillText(formatNumber(xValue, { maximumFractionDigits: 1 }), x, rect.height - pad + 6);
+
+                ctx.beginPath();
+                ctx.moveTo(pad - 4, y);
+                ctx.lineTo(pad, y);
+                ctx.stroke();
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillText(formatNumber(yValue, { maximumFractionDigits: 1 }), pad - 6, y);
+            }
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+            ctx.font = "11px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(
+                "Canal density (km/1000 km2 of cropland)",
+                rect.width / 2,
+                rect.height - 10
+            );
+
+            ctx.save();
+            ctx.translate(6, rect.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = "center";
+            ctx.fillText("Cereal yield (kg/ha)", 0, 0);
+            ctx.restore();
+
+            rows.forEach((row) => {
+                const x = scale(row.density, xMin, xMax, rect.width);
+                const y = rect.height - scale(row.yield, yMin, yMax, rect.height);
+                const t = (row.length - lenMin) / (lenMax - lenMin || 1);
+                const radius = 3 + t * 8;
+
+                ctx.beginPath();
+                const color = continentColors[row.continent] || "#64748b";
+                ctx.fillStyle = `${color}99`;
+                ctx.strokeStyle = "rgba(124, 45, 18, 0.35)";
+                ctx.lineWidth = 0.5;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            const legendEl = document.getElementById("yield-legend");
+            if (legendEl) {
+                legendEl.innerHTML = "";
+                const entries = Array.from(
+                    new Set(
+                        rows
+                            .map((row) => row.continent)
+                            .filter(Boolean)
+                    )
+                ).sort((a, b) => a.localeCompare(b));
+
+                entries.forEach((continent) => {
+                    const item = document.createElement("div");
+                    item.className = "insights-legend-item";
+
+                    const swatch = document.createElement("span");
+                    swatch.className = "insights-legend-swatch";
+                    swatch.style.background = continentColors[continent] || "#64748b";
+
+                    const label = document.createElement("span");
+                    label.className = "insights-legend-label";
+                    label.textContent = continent;
+
+                    item.appendChild(swatch);
+                    item.appendChild(label);
+                    legendEl.appendChild(item);
+                });
+            }
+
+            const sizeSmall = document.getElementById("yield-size-small");
+            const sizeMedium = document.getElementById("yield-size-medium");
+            const sizeLarge = document.getElementById("yield-size-large");
+            if (sizeSmall && sizeMedium && sizeLarge) {
+                sizeSmall.textContent = `${formatNumber(lenMin, { maximumFractionDigits: 0 })} km`;
+                sizeMedium.textContent = `${formatNumber(lenMin + (lenMax - lenMin) * 0.5, { maximumFractionDigits: 0 })} km`;
+                sizeLarge.textContent = `${formatNumber(lenMax, { maximumFractionDigits: 0 })} km`;
+            }
+        };
+
+        const setInsightsOpen = (open) => {
+            document.body.classList.toggle("insights-open", open);
+            insightsTab.setAttribute("aria-expanded", open ? "true" : "false");
+            insightsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+            if (open) {
+                const isLengthActive = document.querySelector(
+                    '.insights-tab-button[aria-selected="true"][data-insights-tab="length"]'
+                );
+                if (isLengthActive) {
+                    renderLengthChoropleth();
+                    renderLengthBars();
+                }
+                const isDensityActive = document.querySelector(
+                    '.insights-tab-button[aria-selected="true"][data-insights-tab="density"]'
+                );
+                if (isDensityActive) {
+                    renderDensityChoropleth();
+                    renderDensityBars();
+                }
+                const isYieldActive = document.querySelector(
+                    '.insights-tab-button[aria-selected="true"][data-insights-tab="yield"]'
+                );
+                if (isYieldActive) {
+                    renderYieldScatterplot();
+                }
+            }
+        };
+
+        insightsTab.addEventListener("click", () => {
+            setInsightsOpen(!document.body.classList.contains("insights-open"));
+        });
+
+        insightsClose.addEventListener("click", () => {
+            setInsightsOpen(false);
+        });
+
+        map.on("click", () => {
+            if (document.body.classList.contains("insights-open")) {
+                setInsightsOpen(false);
+            }
+        });
+
+        insightsButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                insightsButtons.forEach((btn) => btn.setAttribute("aria-selected", "false"));
+                button.setAttribute("aria-selected", "true");
+                const panelName = button.dataset.insightsTab;
+                insightsPanels.forEach((panel) => {
+                    panel.hidden = panel.dataset.insightsPanel !== panelName;
+                });
+                if (panelName === "length") {
+                    renderLengthChoropleth();
+                    renderLengthBars();
+                }
+                if (panelName === "density") {
+                    renderDensityChoropleth();
+                    renderDensityBars();
+                }
+                if (panelName === "yield") {
+                    renderYieldScatterplot();
+                }
+            });
+        });
+
+        window.addEventListener("resize", () => {
+            const isLengthActive = document.querySelector(
+                '.insights-tab-button[aria-selected="true"][data-insights-tab="length"]'
+            );
+            if (isLengthActive && insightsPanel.getAttribute("aria-hidden") === "false") {
+                renderLengthChoropleth();
+                renderLengthBars();
+            }
+            const isDensityActive = document.querySelector(
+                '.insights-tab-button[aria-selected="true"][data-insights-tab="density"]'
+            );
+            if (isDensityActive && insightsPanel.getAttribute("aria-hidden") === "false") {
+                renderDensityChoropleth();
+                renderDensityBars();
+            }
+            const isYieldActive = document.querySelector(
+                '.insights-tab-button[aria-selected="true"][data-insights-tab="yield"]'
+            );
+            if (isYieldActive && insightsPanel.getAttribute("aria-hidden") === "false") {
+                renderYieldScatterplot();
+            }
+        });
+
         const countrySelect = document.getElementById("country-select");
         let countryFeatures = [];
         const GLOBAL_STATS = {
@@ -376,6 +1073,11 @@
                 }
                 const data = await response.json();
                 countryFeatures = data.features || [];
+                renderLengthChoropleth();
+                renderLengthBars();
+                renderDensityChoropleth();
+                renderDensityBars();
+                renderYieldScatterplot();
                 const names = Array.from(new Set(
                     countryFeatures
                         .map((feature) => feature?.properties?.name)
