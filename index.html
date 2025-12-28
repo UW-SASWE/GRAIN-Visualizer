@@ -157,6 +157,7 @@
                 <div class="insights-content" data-insights-panel="yield" hidden>
                     <div class="insights-map-card insights-map-card--scatter">
                         <canvas id="yield-scatterplot" aria-label="Cereal yield scatterplot" role="img"></canvas>
+                        <div class="scatter-tooltip" id="yield-tooltip" role="status" aria-hidden="true"></div>
                     </div>
                     <div class="insights-side-card">
                         <div class="insights-legend-block">
@@ -408,6 +409,8 @@
         const insightsPanel = document.getElementById("insights-panel");
         const insightsPanels = document.querySelectorAll(".insights-content");
         const insightsButtons = document.querySelectorAll(".insights-tab-button");
+        const yieldCanvas = document.getElementById("yield-scatterplot");
+        const yieldTooltip = document.getElementById("yield-tooltip");
 
         const getTotalLength = (properties) =>
             (properties?.Agricultural || 0) +
@@ -749,6 +752,8 @@
             }
         };
 
+        let yieldScatterPoints = [];
+
         const renderYieldScatterplot = () => {
             const canvas = document.getElementById("yield-scatterplot");
             if (!canvas || !countryFeatures.length) {
@@ -782,6 +787,7 @@
 
             const rows = countryFeatures
                 .map((feature) => ({
+                    name: feature?.properties?.name || "Unknown",
                     density: getDensityValue(feature?.properties),
                     yield: feature?.properties?.cereal_yield || 0,
                     length: getTotalLength(feature?.properties),
@@ -872,8 +878,10 @@
             ctx.translate(6, rect.height / 2);
             ctx.rotate(-Math.PI / 2);
             ctx.textAlign = "center";
-            ctx.fillText("Cereal yield (kg/ha)", 0, 0);
+            ctx.fillText("Cereal yield (tonnes/ha)", 0, 0);
             ctx.restore();
+
+            yieldScatterPoints = [];
 
             rows.forEach((row) => {
                 const x = scale(row.density, xMin, xMax, rect.width);
@@ -889,6 +897,17 @@
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
+
+                yieldScatterPoints.push({
+                    x,
+                    y,
+                    r: radius,
+                    name: row.name,
+                    density: row.density,
+                    yield: row.yield,
+                    length: row.length,
+                    continent: row.continent
+                });
             });
 
             const legendEl = document.getElementById("yield-legend");
@@ -971,6 +990,53 @@
                 setInsightsOpen(false);
             }
         });
+
+        if (yieldCanvas && yieldTooltip) {
+            const hideYieldTooltip = () => {
+                yieldTooltip.setAttribute("aria-hidden", "true");
+                yieldTooltip.style.opacity = "0";
+            };
+
+            yieldCanvas.addEventListener("mouseleave", hideYieldTooltip);
+            yieldCanvas.addEventListener("mousemove", (event) => {
+                if (insightsPanel.getAttribute("aria-hidden") === "true") {
+                    hideYieldTooltip();
+                    return;
+                }
+
+                const rect = yieldCanvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                let closest = null;
+                let minDistance = Infinity;
+                yieldScatterPoints.forEach((point) => {
+                    const dx = x - point.x;
+                    const dy = y - point.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance <= point.r + 2 && distance < minDistance) {
+                        minDistance = distance;
+                        closest = point;
+                    }
+                });
+
+                if (!closest) {
+                    hideYieldTooltip();
+                    return;
+                }
+
+                yieldTooltip.innerHTML = `
+                    <strong>${closest.name}</strong><br />
+                    Density: ${formatNumber(closest.density, { maximumFractionDigits: 1 })} km/1000 km<sup>2</sup><br />
+                    Cereal yield: ${formatNumber(closest.yield, { maximumFractionDigits: 1 })} tonnes/ha<br />
+                    Canal length: ${formatNumber(closest.length, { maximumFractionDigits: 0 })} km
+                `;
+                yieldTooltip.style.left = `${Math.min(rect.width - 160, x + 12)}px`;
+                yieldTooltip.style.top = `${Math.max(6, y - 10)}px`;
+                yieldTooltip.style.opacity = "1";
+                yieldTooltip.setAttribute("aria-hidden", "false");
+            });
+        }
 
         insightsButtons.forEach((button) => {
             button.addEventListener("click", () => {
