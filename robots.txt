@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sureshsarath.github.io/grain_visualizer/sitemap.xml
