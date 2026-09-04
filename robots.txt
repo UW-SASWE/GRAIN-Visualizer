@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sureshsarath.github.io/grain_visualizer/sitemap.xml
+Sitemap: https://uw-saswe.github.io/GRAIN-Visualizer/sitemap.xml

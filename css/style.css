@@ -157,6 +157,12 @@ aside {
   margin-left: 4px;
 }
 
+.panel-title span {
+  text-transform: none !important;
+  font-weight: 400 !important;
+  letter-spacing: normal;
+}
+
 .download-button {
   display: inline-flex;
   align-items: center;
@@ -488,6 +494,17 @@ footer {
 .footer-strong {
   font-weight: 700;
   color: var(--text-main);
+  text-decoration: none !important;
+}
+
+a.footer-strong {
+  text-decoration: none !important;
+  transition: color 0.2s ease;
+}
+
+a.footer-strong:hover {
+  text-decoration: none !important;
+  color: var(--primary-color);
 }
 
 .footer-cloudflare-logo {

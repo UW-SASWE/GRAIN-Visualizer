@@ -6,12 +6,12 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>GRAIN Canals Visualizer | Global Canal Dataset Map</title>
     <meta name="description" content="Explore the GRAIN canals dataset with interactive maps and country statistics. Visualize global canal length, density, and cereal yield." />
-    <link rel="canonical" href="https://sureshsarath.github.io/grain_visualizer/" />
+    <link rel="canonical" href="https://uw-saswe.github.io/GRAIN-Visualizer/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="GRAIN Canals Visualizer | Global Canal Dataset Map" />
     <meta property="og:description" content="Explore the GRAIN canals dataset with interactive maps and country statistics. Visualize global canal length, density, and cereal yield." />
-    <meta property="og:url" content="https://sureshsarath.github.io/grain_visualizer/" />
+    <meta property="og:url" content="https://uw-saswe.github.io/GRAIN-Visualizer/" />
     <meta property="og:site_name" content="GRAIN Canals Visualizer" />
 
     <meta name="twitter:card" content="summary" />
@@ -34,7 +34,7 @@
             "@context": "https://schema.org",
             "@type": "WebSite",
             "name": "GRAIN Canals Visualizer",
-            "url": "https://sureshsarath.github.io/grain_visualizer/"
+            "url": "https://uw-saswe.github.io/GRAIN-Visualizer/"
         }
     </script>
     <script type="application/ld+json">
@@ -42,7 +42,7 @@
             "@context": "https://schema.org",
             "@type": "WebPage",
             "name": "GRAIN Canals Visualizer",
-            "url": "https://sureshsarath.github.io/grain_visualizer/",
+            "url": "https://uw-saswe.github.io/GRAIN-Visualizer/",
             "description": "Explore the GRAIN canals dataset with interactive maps and country statistics. Visualize global canal length, density, and cereal yield."
         }
     </script>
@@ -52,7 +52,7 @@
             "@type": "Dataset",
             "name": "GRAIN Canals Dataset",
             "description": "Global canals dataset from the GRAIN project, with country-level statistics and visualizations.",
-            "url": "https://sureshsarath.github.io/grain_visualizer/",
+            "url": "https://uw-saswe.github.io/GRAIN-Visualizer/",
             "license": "https://doi.org/10.5281/zenodo.16786488",
             "distribution": [
                 {
@@ -112,7 +112,7 @@
         </div>
 
         <div class="panel-section">
-            <div class="panel-title">Stats</div>
+            <div class="panel-title">Stats <span style="text-transform: none; font-weight: 400; letter-spacing: normal;">(Agricultural)</span></div>
             <div class="stat-grid">
                 <!-- Box 1: Length -->
                 <div class="stat-box blue">
@@ -162,7 +162,6 @@
             <select id="basemap-select">
                 <option value="standard" selected>Standard</option>
                 <option value="satellite">Satellite</option>
-                <option value="night">Night</option>
             </select>
         </div>
         <div class="map-control-card map-toggle-card">
@@ -263,7 +262,7 @@
         <div class="footer-logos">
             <span class="footer-logo-text footer-logo-uw">
                 <span class="footer-logo-sub">Maintained by </span>
-                <span class="footer-strong">Sarath Suresh</span>
+                <a class="footer-strong" href="https://www.linkedin.com/in/sarathsuresh96" target="_blank" rel="noopener" style="text-decoration: none;">Sarath Suresh</a>
                 <span class="footer-logo-sub">, University of Washington</span>
             </span>
         </div>
@@ -307,22 +306,11 @@
                         tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
                         tileSize: 256,
                         attribution: "© Esri"
-                    },
-                    carto_dark: {
-                        type: "raster",
-                        tiles: [
-                            "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-                            "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-                            "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-                        ],
-                        tileSize: 256,
-                        attribution: "© OpenStreetMap contributors © CARTO"
                     }
                 },
                 layers: [
                     { id: "osm", type: "raster", source: "osm" },
-                    { id: "esri-imagery", type: "raster", source: "esri_imagery", layout: { visibility: "none" } },
-                    { id: "carto-dark", type: "raster", source: "carto_dark", layout: { visibility: "none" } }
+                    { id: "esri-imagery", type: "raster", source: "esri_imagery", layout: { visibility: "none" } }
                 ]
             },
             center: [0, 20],
@@ -426,8 +414,8 @@
                     "match",
                     ["get", "country_iso"],
                     selectedCountryIso,
-                    "red",
-                    baseLineColor
+                    baseLineColor,
+                    "#9ca3af"
                 ]);
                 map.setPaintProperty("grain-lines", "line-width", [
                     "case",
@@ -446,13 +434,11 @@
             const selected = basemapSelect.value;
             const isStandard = selected === "standard";
             const isSatellite = selected === "satellite";
-            const isNight = selected === "night";
 
             map.setLayoutProperty("osm", "visibility", isStandard ? "visible" : "none");
             map.setLayoutProperty("esri-imagery", "visibility", isSatellite ? "visible" : "none");
-            map.setLayoutProperty("carto-dark", "visibility", isNight ? "visible" : "none");
 
-            baseLineColor = isStandard ? "blue" : isSatellite ? "orange" : "#ffffff";
+            baseLineColor = isStandard ? "blue" : "orange";
             updateGrainLineStyle();
         });
 
@@ -480,15 +466,6 @@
                 map.setFilter("grain-lines", null);
             } else {
                 map.setFilter("grain-lines", ["==", ["get", "canal_use"], use]);
-            }
-
-            if (countrySelect && countrySelect.value !== "global") {
-                const selected = countryFeatures.find(
-                    (feature) => feature?.properties?.name === countrySelect.value
-                );
-                if (selected?.properties) {
-                    setCountryStats(selected.properties);
-                }
             }
         };
 
@@ -1203,23 +1180,7 @@
         };
 
         const setCountryStats = (properties) => {
-            const use = canalUseSelect ? canalUseSelect.value : "Agricultural";
-            let lengthVal = 0;
-            if (use === "Agricultural") {
-                lengthVal = properties?.Agricultural || 0;
-            } else if (use === "Urban Waterway") {
-                lengthVal = properties?.urban_length || 0;
-            } else if (use === "Navigational Waterway") {
-                lengthVal = properties?.navigational_length || 0;
-            } else if (use === "Other") {
-                lengthVal = properties?.Other || 0;
-            } else {
-                lengthVal =
-                    (properties?.Agricultural || 0) +
-                    (properties?.urban_length || 0) +
-                    (properties?.navigational_length || 0) +
-                    (properties?.Other || 0);
-            }
+            const lengthVal = properties?.Agricultural || 0;
 
             statLength.textContent = formatNumber(lengthVal, { maximumFractionDigits: 1 });
             statLengthUnit.textContent = "km";
